@@ -13,7 +13,7 @@ import (
 )
 
 func main() {
-	lis, err := net.Listen("tcp", ":50051")
+	lis, err := net.Listen("tcp", ":50051") //nolint:gosec // Okay for the project
 	if err != nil {
 		log.Fatalf("failed to list: %v", err)
 	}
