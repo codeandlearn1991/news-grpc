@@ -132,7 +132,7 @@ linters:
     - rowserrcheck
     - sqlclosecheck
     - stylecheck
-    - tenv
+    - usetesting
     - testpackage
     - thelper
     - tparallel
@@ -152,6 +152,9 @@ issues:
         - goconst
         - ireturn
         - dupl
+    - path: internal/grpc/server.go
+      linters:
+        - wrapcheck
   include:
     - EXC0012
     - EXC0014
