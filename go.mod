@@ -5,6 +5,7 @@ go 1.24.0
 tool github.com/bufbuild/buf/cmd/buf
 
 require (
+	github.com/google/uuid v1.6.0
 	google.golang.org/grpc v1.69.4
 	google.golang.org/protobuf v1.36.4-0.20250116160514-2005adbe0cf6
 )
@@ -59,7 +60,6 @@ require (
 	github.com/google/cel-go v0.22.1 // indirect
 	github.com/google/go-containerregistry v0.20.2 // indirect
 	github.com/google/pprof v0.0.0-20241210010833-40e02aabc2ad // indirect
-	github.com/google/uuid v1.6.0 // indirect
 	github.com/inconshreveable/mousetrap v1.1.0 // indirect
 	github.com/jdx/go-netrc v1.0.0 // indirect
 	github.com/klauspost/compress v1.17.11 // indirect
