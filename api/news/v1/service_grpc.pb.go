@@ -11,6 +11,7 @@ import (
 	grpc "google.golang.org/grpc"
 	codes "google.golang.org/grpc/codes"
 	status "google.golang.org/grpc/status"
+	emptypb "google.golang.org/protobuf/types/known/emptypb"
 )
 
 // This is a compile-time assertion to ensure that this generated file
@@ -21,6 +22,7 @@ const _ = grpc.SupportPackageIsVersion9
 const (
 	NewsService_Create_FullMethodName = "/news.v1.NewsService/Create"
 	NewsService_Get_FullMethodName    = "/news.v1.NewsService/Get"
+	NewsService_GetAll_FullMethodName = "/news.v1.NewsService/GetAll"
 )
 
 // NewsServiceClient is the client API for NewsService service.
@@ -29,6 +31,8 @@ const (
 type NewsServiceClient interface {
 	Create(ctx context.Context, in *CreateRequest, opts ...grpc.CallOption) (*CreateResponse, error)
 	Get(ctx context.Context, in *GetRequest, opts ...grpc.CallOption) (*GetResponse, error)
+	// Server side stream
+	GetAll(ctx context.Context, in *emptypb.Empty, opts ...grpc.CallOption) (grpc.ServerStreamingClient[GetAllResponse], error)
 }
 
 type newsServiceClient struct {
@@ -59,12 +63,33 @@ func (c *newsServiceClient) Get(ctx context.Context, in *GetRequest, opts ...grp
 	return out, nil
 }
 
+func (c *newsServiceClient) GetAll(ctx context.Context, in *emptypb.Empty, opts ...grpc.CallOption) (grpc.ServerStreamingClient[GetAllResponse], error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	stream, err := c.cc.NewStream(ctx, &NewsService_ServiceDesc.Streams[0], NewsService_GetAll_FullMethodName, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	x := &grpc.GenericClientStream[emptypb.Empty, GetAllResponse]{ClientStream: stream}
+	if err := x.ClientStream.SendMsg(in); err != nil {
+		return nil, err
+	}
+	if err := x.ClientStream.CloseSend(); err != nil {
+		return nil, err
+	}
+	return x, nil
+}
+
+// This type alias is provided for backwards compatibility with existing code that references the prior non-generic stream type by name.
+type NewsService_GetAllClient = grpc.ServerStreamingClient[GetAllResponse]
+
 // NewsServiceServer is the server API for NewsService service.
 // All implementations must embed UnimplementedNewsServiceServer
 // for forward compatibility.
 type NewsServiceServer interface {
 	Create(context.Context, *CreateRequest) (*CreateResponse, error)
 	Get(context.Context, *GetRequest) (*GetResponse, error)
+	// Server side stream
+	GetAll(*emptypb.Empty, grpc.ServerStreamingServer[GetAllResponse]) error
 	mustEmbedUnimplementedNewsServiceServer()
 }
 
@@ -80,6 +105,9 @@ func (UnimplementedNewsServiceServer) Create(context.Context, *CreateRequest) (*
 }
 func (UnimplementedNewsServiceServer) Get(context.Context, *GetRequest) (*GetResponse, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method Get not implemented")
+}
+func (UnimplementedNewsServiceServer) GetAll(*emptypb.Empty, grpc.ServerStreamingServer[GetAllResponse]) error {
+	return status.Errorf(codes.Unimplemented, "method GetAll not implemented")
 }
 func (UnimplementedNewsServiceServer) mustEmbedUnimplementedNewsServiceServer() {}
 func (UnimplementedNewsServiceServer) testEmbeddedByValue()                     {}
@@ -138,6 +166,17 @@ func _NewsService_Get_Handler(srv interface{}, ctx context.Context, dec func(int
 	return interceptor(ctx, in, info, handler)
 }
 
+func _NewsService_GetAll_Handler(srv interface{}, stream grpc.ServerStream) error {
+	m := new(emptypb.Empty)
+	if err := stream.RecvMsg(m); err != nil {
+		return err
+	}
+	return srv.(NewsServiceServer).GetAll(m, &grpc.GenericServerStream[emptypb.Empty, GetAllResponse]{ServerStream: stream})
+}
+
+// This type alias is provided for backwards compatibility with existing code that references the prior non-generic stream type by name.
+type NewsService_GetAllServer = grpc.ServerStreamingServer[GetAllResponse]
+
 // NewsService_ServiceDesc is the grpc.ServiceDesc for NewsService service.
 // It's only intended for direct use with grpc.RegisterService,
 // and not to be introspected or modified (even as a copy)
@@ -154,6 +193,12 @@ var NewsService_ServiceDesc = grpc.ServiceDesc{
 			Handler:    _NewsService_Get_Handler,
 		},
 	},
-	Streams:  []grpc.StreamDesc{},
+	Streams: []grpc.StreamDesc{
+		{
+			StreamName:    "GetAll",
+			Handler:       _NewsService_GetAll_Handler,
+			ServerStreams: true,
+		},
+	},
 	Metadata: "news/v1/service.proto",
 }

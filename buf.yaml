@@ -4,6 +4,8 @@ lint:
   use:
     - STANDARD
     - SERVICE_SUFFIX
+  except:
+    - RPC_REQUEST_STANDARD_NAME
 breaking:
   use:
     - FILE

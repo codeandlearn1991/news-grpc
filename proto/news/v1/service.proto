@@ -5,8 +5,11 @@ option go_package = "github.com/codeandlearn1991/news-grpc/api/news/v1;newsv1";
 package news.v1;
 
 import "news/v1/news.proto";
+import "google/protobuf/empty.proto";
 
 service NewsService {
   rpc Create(CreateRequest) returns (CreateResponse);
   rpc Get(GetRequest) returns (GetResponse);
+  // Server side stream
+  rpc GetAll(google.protobuf.Empty) returns (stream GetAllResponse);
 }

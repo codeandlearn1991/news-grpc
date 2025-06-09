@@ -11,6 +11,7 @@ import (
 	"github.com/google/uuid"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
+	"google.golang.org/protobuf/types/known/emptypb"
 	"google.golang.org/protobuf/types/known/timestamppb"
 )
 
@@ -18,6 +19,7 @@ import (
 type NewsStorer interface {
 	Create(news *memstore.News) *memstore.News
 	Get(id uuid.UUID) *memstore.News
+	GetAll() []*memstore.News
 }
 
 // Server implements of NewServiceServer.
@@ -66,6 +68,26 @@ func (s *Server) Get(_ context.Context, in *newsv1.GetRequest) (*newsv1.GetRespo
 		CreatedAt: timestamppb.New(fetchedNews.CreatedAt.UTC()),
 		UpdatedAt: timestamppb.New(fetchedNews.UpdatedAt.UTC()),
 	}, nil
+}
+
+// GetAll news.
+func (s *Server) GetAll(_ *emptypb.Empty, stream newsv1.NewsService_GetAllServer) error {
+	for _, fetchedNews := range s.store.GetAll() {
+		if err := stream.Send(&newsv1.GetAllResponse{
+			Id:        fetchedNews.ID.String(),
+			Author:    fetchedNews.Author,
+			Title:     fetchedNews.Title,
+			Summary:   fetchedNews.Summary,
+			Content:   fetchedNews.Content,
+			Source:    fetchedNews.Source.String(),
+			Tags:      fetchedNews.Tags,
+			CreatedAt: timestamppb.New(fetchedNews.CreatedAt.UTC()),
+			UpdatedAt: timestamppb.New(fetchedNews.UpdatedAt.UTC()),
+		}); err != nil {
+			return err
+		}
+	}
+	return nil
 }
 
 func parseAndValidate(in *newsv1.CreateRequest) (n *memstore.News, errs error) {

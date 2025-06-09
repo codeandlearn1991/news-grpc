@@ -43,3 +43,15 @@ message GetResponse {
 message GetRequest {
   string id = 1;
 }
+
+message GetAllResponse {
+  string id = 1;
+  string author = 2;
+  string title = 3;
+  string summary = 4;
+  string content = 5;
+  string source = 6;
+  repeated string tags = 7;
+  google.protobuf.Timestamp created_at = 8;
+  google.protobuf.Timestamp updated_at = 9;
+}

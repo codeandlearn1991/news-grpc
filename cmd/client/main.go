@@ -2,12 +2,16 @@ package main
 
 import (
 	"context"
+	"errors"
+	"fmt"
+	"io"
 	"log"
 
 	newsv1 "github.com/codeandlearn1991/news-grpc/api/news/v1"
 	"github.com/google/uuid"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/credentials/insecure"
+	"google.golang.org/protobuf/types/known/emptypb"
 )
 
 func main() {
@@ -20,22 +24,40 @@ func main() {
 
 	ctx := context.Background()
 
-	createRes, err := client.Create(ctx, &newsv1.CreateRequest{
-		Id:      uuid.NewString(),
-		Author:  "Test Author",
-		Title:   "Test title",
-		Content: "Test content",
-		Summary: "Test summary",
-		Source:  "https://example.com",
-		Tags:    []string{"tag1", "tag2"},
-	})
-	if err != nil {
-		log.Fatalf("create news: %v", err)
+	for i := range 5 {
+		_, err = client.Create(ctx, &newsv1.CreateRequest{
+			Id:      uuid.NewString(),
+			Author:  fmt.Sprintf("Test Author %d", i),
+			Title:   fmt.Sprintf("Test title %d", i),
+			Content: fmt.Sprintf("Test content %d", i),
+			Summary: fmt.Sprintf("Test summary %d", i),
+			Source:  "https://example.com",
+			Tags:    []string{"tag1", "tag2"},
+		})
+		if err != nil {
+			log.Fatalf("create news: %v", err)
+		}
 	}
 
-	getRes, err := client.Get(ctx, &newsv1.GetRequest{Id: createRes.Id})
+	getAllRes, err := client.GetAll(ctx, &emptypb.Empty{})
 	if err != nil {
-		log.Fatalf("get news: %v", err)
+		log.Fatalf("get all news: %v", err)
 	}
-	log.Printf("get news: %+v", getRes)
+
+	allNews := make([]*newsv1.GetAllResponse, 0)
+
+	for {
+		res, err := getAllRes.Recv()
+		if errors.Is(err, io.EOF) {
+			break
+		}
+
+		if err != nil {
+			log.Fatalf("get all news stream: %v", err)
+		}
+
+		allNews = append(allNews, res)
+	}
+
+	log.Printf("all news: %v", allNews)
 }
