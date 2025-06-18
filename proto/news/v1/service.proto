@@ -12,4 +12,6 @@ service NewsService {
   rpc Get(GetRequest) returns (GetResponse);
   // Server side stream
   rpc GetAll(google.protobuf.Empty) returns (stream GetAllResponse);
+  // Client side stream
+  rpc UpdateNews(stream CreateRequest) returns (google.protobuf.Empty);
 }

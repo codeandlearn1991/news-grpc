@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"io"
 	"net/url"
 
 	newsv1 "github.com/codeandlearn1991/news-grpc/api/news/v1"
@@ -20,6 +21,7 @@ type NewsStorer interface {
 	Create(news *memstore.News) *memstore.News
 	Get(id uuid.UUID) *memstore.News
 	GetAll() []*memstore.News
+	Update(news *memstore.News)
 }
 
 // Server implements of NewServiceServer.
@@ -88,6 +90,24 @@ func (s *Server) GetAll(_ *emptypb.Empty, stream newsv1.NewsService_GetAllServer
 		}
 	}
 	return nil
+}
+
+// UpdateNews gRPC method.
+func (s *Server) UpdateNews(stream newsv1.NewsService_UpdateNewsServer) error {
+	for {
+		req, err := stream.Recv()
+		if errors.Is(err, io.EOF) {
+			return stream.SendAndClose(&emptypb.Empty{})
+		}
+		if err != nil {
+			return err
+		}
+		updatedNews, err := parseAndValidate(req)
+		if err != nil {
+			return status.Errorf(codes.InvalidArgument, "validation failed %v", err)
+		}
+		s.store.Update(updatedNews)
+	}
 }
 
 func parseAndValidate(in *newsv1.CreateRequest) (n *memstore.News, errs error) {

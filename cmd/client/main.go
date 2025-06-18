@@ -14,7 +14,7 @@ import (
 	"google.golang.org/protobuf/types/known/emptypb"
 )
 
-func main() {
+func main() { //nolint:gocyclo // Refactor to reduce complexity
 	conn, err := grpc.NewClient("localhost:50051", grpc.WithTransportCredentials(insecure.NewCredentials()))
 	if err != nil {
 		log.Fatalf("new client: %v\n", err)
@@ -39,7 +39,7 @@ func main() {
 		}
 	}
 
-	getAllRes, err := client.GetAll(ctx, &emptypb.Empty{})
+	getAllStream, err := client.GetAll(ctx, &emptypb.Empty{})
 	if err != nil {
 		log.Fatalf("get all news: %v", err)
 	}
@@ -47,7 +47,52 @@ func main() {
 	allNews := make([]*newsv1.GetAllResponse, 0)
 
 	for {
-		res, err := getAllRes.Recv()
+		getAllNews, getAllErr := getAllStream.Recv()
+		if errors.Is(getAllErr, io.EOF) {
+			break
+		}
+
+		if getAllErr != nil {
+			log.Fatalf("get all news stream: %v", getAllErr)
+		}
+
+		allNews = append(allNews, getAllNews)
+	}
+
+	var clientStream grpc.ClientStreamingClient[newsv1.CreateRequest, emptypb.Empty]
+	for i, n := range allNews {
+		clientStream, err = client.UpdateNews(ctx)
+		if err != nil {
+			log.Fatalf("update news stream: %v", err)
+		}
+
+		err = clientStream.Send(&newsv1.CreateRequest{
+			Id:      n.Id,
+			Author:  n.Author + fmt.Sprintf(" updated %d", i),
+			Title:   n.Title,
+			Tags:    n.Tags,
+			Summary: n.Summary,
+			Content: n.Content,
+			Source:  n.Source,
+		})
+		if err != nil {
+			log.Fatalf("update news send: %v", err)
+		}
+	}
+
+	if _, closeErr := clientStream.CloseAndRecv(); closeErr != nil {
+		log.Fatalf("client stream close: %v", closeErr)
+	}
+
+	getAllStream, err = client.GetAll(ctx, &emptypb.Empty{})
+	if err != nil {
+		log.Fatalf("get all news: %v", err)
+	}
+
+	updatedNews := make([]*newsv1.GetAllResponse, 0)
+
+	for {
+		res, err := getAllStream.Recv()
 		if errors.Is(err, io.EOF) {
 			break
 		}
@@ -56,8 +101,8 @@ func main() {
 			log.Fatalf("get all news stream: %v", err)
 		}
 
-		allNews = append(allNews, res)
+		updatedNews = append(updatedNews, res)
 	}
 
-	log.Printf("all news: %v", allNews)
+	log.Printf("updated news: %v", updatedNews)
 }
