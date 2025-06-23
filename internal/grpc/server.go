@@ -22,6 +22,7 @@ type NewsStorer interface {
 	Get(id uuid.UUID) *memstore.News
 	GetAll() []*memstore.News
 	Update(news *memstore.News)
+	Delete(id uuid.UUID)
 }
 
 // Server implements of NewServiceServer.
@@ -107,6 +108,30 @@ func (s *Server) UpdateNews(stream newsv1.NewsService_UpdateNewsServer) error {
 			return status.Errorf(codes.InvalidArgument, "validation failed %v", err)
 		}
 		s.store.Update(updatedNews)
+	}
+}
+
+// DeletedNews from store.
+func (s *Server) DeletedNews(stream newsv1.NewsService_DeletedNewsServer) error {
+	for {
+		req, err := stream.Recv()
+		if errors.Is(err, io.EOF) {
+			return nil
+		}
+
+		if err != nil {
+			return err
+		}
+
+		newsUUID, err := uuid.Parse(req.Id)
+		if err != nil {
+			return status.Error(codes.InvalidArgument, err.Error())
+		}
+
+		s.store.Delete(newsUUID)
+		if err := stream.Send(&emptypb.Empty{}); err != nil {
+			return err
+		}
 	}
 }
 

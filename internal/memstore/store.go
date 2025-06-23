@@ -104,3 +104,15 @@ func (s *Store) Update(updatedNews *News) {
 		}
 	}
 }
+
+// Delete news from store.
+func (s *Store) Delete(id uuid.UUID) {
+	s.lock.Lock()
+	defer s.lock.Unlock()
+	for idx, news := range s.news {
+		if id == news.ID {
+			s.news[idx].DeletedAt = time.Now().UTC()
+			return
+		}
+	}
+}

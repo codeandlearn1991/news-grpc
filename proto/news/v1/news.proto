@@ -55,3 +55,8 @@ message GetAllResponse {
   google.protobuf.Timestamp created_at = 8;
   google.protobuf.Timestamp updated_at = 9;
 }
+
+message NewsID {
+  // Id of the news.
+  string id = 1;
+}

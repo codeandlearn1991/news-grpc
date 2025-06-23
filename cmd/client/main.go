@@ -92,17 +92,73 @@ func main() { //nolint:gocyclo // Refactor to reduce complexity
 	updatedNews := make([]*newsv1.GetAllResponse, 0)
 
 	for {
-		res, err := getAllStream.Recv()
-		if errors.Is(err, io.EOF) {
+		res, recvErr := getAllStream.Recv()
+		if errors.Is(recvErr, io.EOF) {
 			break
 		}
 
-		if err != nil {
-			log.Fatalf("get all news stream: %v", err)
+		if recvErr != nil {
+			log.Fatalf("get all news stream: %v", recvErr)
 		}
 
 		updatedNews = append(updatedNews, res)
 	}
 
 	log.Printf("updated news: %v", updatedNews)
+
+	// Bidirectional stream to delete news
+	deleteStream, err := client.DeletedNews(ctx)
+	if err != nil {
+		log.Fatalf("delete news stream: %v", err)
+	}
+
+	waitc := make(chan struct{})
+
+	go func() {
+		defer close(waitc)
+		for _, news := range allNews {
+			sendErr := deleteStream.Send(&newsv1.NewsID{Id: news.Id})
+			if sendErr != nil {
+				log.Fatalf("deleting news: %v", sendErr)
+			}
+		}
+		if closeErr := deleteStream.CloseSend(); closeErr != nil {
+			log.Fatalf("close and send: %v", closeErr)
+		}
+	}()
+
+	for {
+		_, recvErr := deleteStream.Recv()
+		if errors.Is(recvErr, io.EOF) {
+			log.Printf("delete stream ended: %v", recvErr)
+			break
+		}
+		if recvErr != nil {
+			log.Fatalf("delete stream: %v", recvErr)
+		}
+		log.Println("news deleted")
+	}
+
+	<-waitc
+
+	getAllStream, err = client.GetAll(ctx, &emptypb.Empty{})
+	if err != nil {
+		log.Fatalf("get all news: %v", err)
+	}
+
+	allNews = make([]*newsv1.GetAllResponse, 0)
+
+	for {
+		getAllNews, getAllErr := getAllStream.Recv()
+		if errors.Is(getAllErr, io.EOF) {
+			break
+		}
+
+		if getAllErr != nil {
+			log.Fatalf("get all news stream: %v", getAllErr)
+		}
+
+		allNews = append(allNews, getAllNews)
+	}
+	log.Println(allNews)
 }
