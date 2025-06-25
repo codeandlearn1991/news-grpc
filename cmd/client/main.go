@@ -15,7 +15,20 @@ import (
 )
 
 func main() { //nolint:gocyclo // Refactor to reduce complexity
-	conn, err := grpc.NewClient("localhost:50051", grpc.WithTransportCredentials(insecure.NewCredentials()))
+	conn, err := grpc.NewClient("localhost:50051", grpc.WithTransportCredentials(insecure.NewCredentials()),
+		grpc.WithChainUnaryInterceptor(
+			func(ctx context.Context, method string, req, reply any, cc *grpc.ClientConn, invoker grpc.UnaryInvoker, opts ...grpc.CallOption) error {
+				log.Println("unary interceptor called")
+				return invoker(ctx, method, req, reply, cc, opts...)
+			},
+		),
+		grpc.WithChainStreamInterceptor(
+			func(ctx context.Context, desc *grpc.StreamDesc, cc *grpc.ClientConn, method string, streamer grpc.Streamer, opts ...grpc.CallOption) (grpc.ClientStream, error) { //nolint:lll // Refactor to create a separate interceptor.
+				log.Println("stream interceptor called")
+				return streamer(ctx, desc, cc, method, opts...)
+			},
+		),
+	)
 	if err != nil {
 		log.Fatalf("new client: %v\n", err)
 	}
