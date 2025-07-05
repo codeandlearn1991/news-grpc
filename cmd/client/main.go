@@ -7,8 +7,8 @@ import (
 	"io"
 	"log"
 
+	"buf.build/go/protovalidate"
 	newsv1 "github.com/codeandlearn1991/news-grpc/api/news/v1"
-	"github.com/google/uuid"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/credentials/insecure"
 	"google.golang.org/protobuf/types/known/emptypb"
@@ -37,16 +37,25 @@ func main() { //nolint:gocyclo // Refactor to reduce complexity
 
 	ctx := context.Background()
 
+	validator, err := protovalidate.New()
+	if err != nil {
+		log.Fatalf("validator initialization: %v", err)
+	}
+
 	for i := range 5 {
-		_, err = client.Create(ctx, &newsv1.CreateRequest{
-			Id:      uuid.NewString(),
+		msg := &newsv1.CreateRequest{
+			Id:      "test something",
 			Author:  fmt.Sprintf("Test Author %d", i),
 			Title:   fmt.Sprintf("Test title %d", i),
 			Content: fmt.Sprintf("Test content %d", i),
 			Summary: fmt.Sprintf("Test summary %d", i),
 			Source:  "https://example.com",
 			Tags:    []string{"tag1", "tag2"},
-		})
+		}
+		if err = validator.Validate(msg); err != nil {
+			log.Fatalf("validation error: %v", err)
+		}
+		_, err = client.Create(ctx, msg)
 		if err != nil {
 			log.Fatalf("create news: %v", err)
 		}

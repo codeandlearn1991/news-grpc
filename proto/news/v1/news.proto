@@ -5,15 +5,21 @@ option go_package = "github.com/codeandlearn1991/news-grpc/api/news/v1;newsv1";
 package news.v1;
 
 import "google/protobuf/timestamp.proto";
+import "buf/validate/validate.proto";
 
 message CreateRequest {
-  string id = 1;
-  string author = 2;
-  string title = 3;
-  string summary = 4;
-  string content = 5;
-  string source = 6;
-  repeated string tags = 7;
+  string id = 1 [(buf.validate.field).string.uuid = true];
+  string author = 2 [(buf.validate.field).string.min_len = 2];
+  string title = 3 [
+    (buf.validate.field).string.min_len = 10,
+    (buf.validate.field).string.max_len = 100
+  ];
+  string summary = 4 [(buf.validate.field).string.min_len = 20];
+  string content = 5 [(buf.validate.field).string.min_len = 100];
+  string source = 6 [(buf.validate.field).string.uri = true];
+  repeated string tags = 7 [
+    (buf.validate.field).repeated.min_items = 1
+  ];
 }
 
 message CreateResponse {
