@@ -14,6 +14,25 @@ import (
 	"google.golang.org/protobuf/types/known/emptypb"
 )
 
+const serviceConfig = `{
+	"loadBalancingConfig": [{ "round_robin": {} }],
+	"methodConfig": [{
+		"name": [{
+			"method": "Get",
+			"service": "news.v1.NewsService"
+		}],
+		"retryPolicy": {
+			"backoffMultiplier": 1.5,
+			"initialBackoff": "0.1s",
+			"maxAttempts": 5,
+			"maxBackoff": "0.5s",
+			"retryableStatusCodes": ["INTERNAL","UNAVAILABLE"]
+		},
+		"timeout": "2s",
+		"waitForReady": true
+	}]
+}`
+
 func main() { //nolint:gocyclo // Refactor to reduce complexity
 	conn, err := grpc.NewClient("localhost:50051", grpc.WithTransportCredentials(insecure.NewCredentials()),
 		grpc.WithChainUnaryInterceptor(
@@ -28,6 +47,7 @@ func main() { //nolint:gocyclo // Refactor to reduce complexity
 				return streamer(ctx, desc, cc, method, opts...)
 			},
 		),
+		grpc.WithDefaultServiceConfig(serviceConfig),
 	)
 	if err != nil {
 		log.Fatalf("new client: %v\n", err)

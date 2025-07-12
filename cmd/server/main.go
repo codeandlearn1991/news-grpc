@@ -1,8 +1,13 @@
 package main
 
 import (
+	"context"
+	"fmt"
 	"log"
 	"net"
+	"os"
+	"os/signal"
+	"syscall"
 
 	newsv1 "github.com/codeandlearn1991/news-grpc/api/news/v1"
 	"google.golang.org/grpc"
@@ -14,14 +19,10 @@ import (
 
 	"buf.build/go/protovalidate"
 	protovalidate_interceptor "github.com/grpc-ecosystem/go-grpc-middleware/v2/interceptors/protovalidate"
+	"golang.org/x/sync/errgroup"
 )
 
 func main() {
-	lis, err := net.Listen("tcp", ":50051") //nolint:gosec // Okay for the project
-	if err != nil {
-		log.Fatalf("failed to list: %v", err)
-	}
-
 	// Interceptors essentially wrapp the gRPC handler.
 	// Request -> Interceptor -> Interceptor or the gRPC handler.
 	//
@@ -48,7 +49,69 @@ func main() {
 	healthSrv := health.NewServer()
 	healthv1.RegisterHealthServer(srv, healthSrv)
 
-	if err := srv.Serve(lis); err != nil {
-		log.Fatalf("failed to serve: %v", err)
+	grp, grpCtx := errgroup.WithContext(context.Background())
+
+	grp.Go(func() (err error) {
+		defer func() {
+			if r := recover(); r != nil {
+				err = fmt.Errorf("panic: %w", err)
+			}
+		}()
+
+		lis, err := net.Listen("tcp", ":50051") //nolint:gosec // Okay for the project
+		if err != nil {
+			err = fmt.Errorf("failed to list: %w", err)
+		}
+
+		if listErr := srv.Serve(lis); listErr != nil {
+			err = fmt.Errorf("failed to serve: %w", listErr)
+		}
+
+		return err
+	})
+
+	grp.Go(func() error {
+		defer func() {
+			if r := recover(); r != nil {
+				err = fmt.Errorf("panic: %w", err)
+			}
+		}()
+		interceptSignals(grpCtx)
+		healthSrv.Shutdown()
+		return shutdown(grpCtx, srv)
+	})
+
+	if err := grp.Wait(); err != nil {
+		log.Fatal("server shutdown", err)
 	}
+}
+
+func interceptSignals(ctx context.Context) {
+	sigc := make(chan os.Signal, 1)
+	signal.Notify(sigc, syscall.SIGINT, syscall.SIGTERM, syscall.SIGQUIT)
+
+	select {
+	case <-ctx.Done():
+		return
+	case sig := <-sigc:
+		log.Println("intercepted signal: ", sig.String())
+		return
+	}
+}
+
+func shutdown(ctx context.Context, srv *grpc.Server) (err error) {
+	done := make(chan struct{})
+	go func() {
+		srv.GracefulStop()
+		close(done)
+	}()
+
+	select {
+	case <-done:
+	case <-ctx.Done():
+		err = fmt.Errorf("grpc server forcibly shutdown: %w", ctx.Err())
+		srv.Stop()
+	}
+
+	return err
 }
